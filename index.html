@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FIFA World CUP LIVE | Sports Universe Prime  </title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.10.1/shaka-player.compiled.js"></script>
+    <style>
+      :root {
+        --bg: #05070d;
+        --panel: #0a0e1a;
+        --accent-blue: #3b82f6;
+        --accent-purple: #a855f7;
+        --live-red: #ef4444;
+        --text: #e5e7eb;
+        --text-dim: #9ca3af;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        background: #000;
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .player-wrap {
+        width: 100vw;
+        height: 100vh;
+        background: var(--panel);
+        overflow: hidden;
+        border-radius: 0;
+      }
+      .video-area {
+        position: relative;
+        width: 100%;
+        height: calc(100vh - 95px);
+        background: #000;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: #000;
+      }
+      .center-play {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        background: rgba(0, 0, 0, 0);
+        transition: background 0.2s;
+      }
+      .center-play.hidden {
+        display: none;
+      }
+      .center-play .big-btn {
+        width: 74px;
+        height: 74px;
+        border-radius: 50%;
+        background: rgba(20, 24, 38, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          transform 0.15s,
+          background 0.15s;
+      }
+      .center-play:hover .big-btn {
+        background: rgba(20, 24, 38, 0.9);
+        transform: scale(1.06);
+      }
+      .center-play svg {
+        width: 30px;
+        height: 30px;
+        fill: #fff;
+      }
+
+      .spinner {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .spinner.active {
+        display: flex;
+      }
+      .spinner .ring {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 4px solid rgba(255, 255, 255, 0.15);
+        border-top-color: var(--accent-blue);
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .controls {
+        background: #06080f;
+        padding: 6px 14px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .progress-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0;
+      }
+      .live-label {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: var(--text-dim);
+        flex: 0 0 auto;
+      }
+      .progress-track {
+        position: relative;
+        flex: 1;
+        height: 4px;
+        border-radius: 2px;
+        background: linear-gradient(
+          90deg,
+          var(--accent-blue),
+          var(--accent-purple)
+        );
+        cursor: pointer;
+      }
+      .progress-track input[type="range"] {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        margin: 0;
+      }
+      .progress-track .knob {
+        position: absolute;
+        top: 50%;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fff;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+        pointer-events: none;
+        transition: left 0.1s linear;
+      }
+
+      .btn-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .btn-row .left,
+      .btn-row .right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .ctrl-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 4px;
+        border-radius: 6px;
+        transition:
+          color 0.15s,
+          background 0.15s;
+      }
+      .ctrl-btn:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .ctrl-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .ctrl-btn.icon-only svg {
+        fill: currentColor;
+        stroke: none;
+      }
+
+      .live-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: var(--live-red);
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+      }
+      .live-pill.paused {
+        color: var(--text-dim);
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .live-pill .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .live-pill.active .dot {
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      .menu-wrap {
+        position: relative;
+      }
+      .menu {
+        position: absolute;
+        bottom: 36px;
+        right: 0;
+        background: #11162a;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        min-width: 170px;
+        padding: 6px;
+        display: none;
+        flex-direction: column;
+        gap: 2px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        z-index: 20;
+        max-height: 240px;
+        overflow-y: auto;
+      }
+      .menu.open {
+        display: flex;
+      }
+      .menu-item {
+        background: none;
+        border: none;
+        color: var(--text);
+        text-align: left;
+        padding: 8px 10px;
+        border-radius: 5px;
+        font-size: 13px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .menu-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .menu-item.active {
+        color: var(--accent-blue);
+        font-weight: 700;
+      }
+
+      .status-line {
+        font-size: 12px;
+        color: var(--text-dim);
+        padding: 8px 14px;
+      }
+      .status-line.error {
+        color: #f87171;
+      }
+      .status-line.ok {
+        color: #4ade80;
+      }
+
+      @media (max-width: 520px) {
+        .btn-row .left,
+        .btn-row .right {
+          gap: 8px;
+        }
+        .ctrl-btn span {
+          display: none;
+        }
+        .ctrl-btn.icon-only span,
+        .live-pill span {
+          display: inline;
+        }
+        .ctrl-btn svg {
+          width: 18px;
+          height: 18px;
+        }
+      }
+
+      .watermark {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 100;
+        color: #fff;
+        font-size: 16px;
+        font-weight: 700;
+        text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+        user-select: none;
+      }
+    </style>
+  </head>
+  
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8676YQ17S0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-8676YQ17S0');
+</script>
+  <body>
+    <div class="player-wrap">
+      <div class="status-line" id="statusLine">Loading...</div>
+
+      <div class="video-area" id="videoArea">
+        <video id="video"></video>
+        <div class="watermark">Stream By Bongo Verse Premium</div>
+
+        <div class="spinner" id="spinner"><div class="ring"></div></div>
+
+        <div class="center-play" id="centerPlay">
+          <div class="big-btn">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="progress-row">
+          <span class="live-label">LIVE</span>
+          <div class="progress-track" id="progressTrack">
+            <div class="knob" id="progressKnob" style="left: 100%"></div>
+            <input
+              type="range"
+              id="seekRange"
+              min="0"
+              max="1000"
+              value="1000"
+              step="1"
+            />
+          </div>
+          <span class="live-label">LIVE</span>
+        </div>
+
+        <div class="btn-row">
+          <div class="left">
+            <button class="ctrl-btn icon-only" id="playBtn" title="Play/Pause">
+              <svg
+                id="playIcon"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                stroke="none"
+              >
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </button>
+
+            <button class="ctrl-btn icon-only" id="muteBtn" title="Mute/Unmute">
+              <svg id="volIcon" viewBox="0 0 24 24">
+                <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                <path
+                  d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"
+                />
+              </svg>
+            </button>
+
+            <div class="live-pill active" id="livePill">
+              <span class="dot"></span><span>LIVE</span>
+            </div>
+          </div>
+
+          <div class="right">
+            <!-- captions and speed controls removed -->
+
+            <div class="menu-wrap">
+              <button class="ctrl-btn" id="sourceBtn" title="Source">
+                <svg viewBox="0 0 24 24">
+                  <path d="M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span id="sourceLabel">Source</span>
+              </button>
+              <div class="menu" id="sourceMenu"></div>
+            </div>
+
+            <div class="menu-wrap">
+              <button class="ctrl-btn" id="qualityBtn" title="Quality">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="3" />
+                  <circle cx="12" cy="12" r="9" stroke-dasharray="2 2" />
+                </svg>
+                <span id="qualityLabel">Auto</span>
+              </button>
+              <div class="menu" id="qualityMenu"></div>
+            </div>
+
+            <!-- PiP removed -->
+
+            <button
+              class="ctrl-btn icon-only"
+              id="fullscreenBtn"
+              title="Fullscreen"
+            >
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      shaka.polyfill.installAll();
+
+      const video = document.getElementById("video");
+      const player = new shaka.Player(video);
+
+      // Fix 4: Robust retry + stall recovery config for live streams
+      player.configure({
+        streaming: {
+          retryParameters: {
+            maxAttempts: 6,
+            baseDelay: 1000,
+            backoffFactor: 2,
+            fuzzFactor: 0.5,
+          },
+          stallEnabled: true,
+          stallThreshold: 1,
+          stallSkip: 0.1,
+          bufferingGoal: 10,
+          rebufferingGoal: 2,
+        },
+      });
+
+      
+      const SOURCES = {
+        CAZE_TV: {
+  name: "Portugese ( Caze TV )",
+  manifest: "https://dfr80qz435crc.cloudfront.net/MNOP/Amagi/Caze/Caze_TV_BR/1080p-vtt/index.m3u8",
+  keys: {}, // HLS stream — ClearKey DRM not applicable
+},
+kickbd_extreme_1_4k: {
+  name: "SEN VS IRAQ",
+  manifest: "https://otte.cache.aiv-cdn.net/iad-nitro/live/clients/enc/za6vgrmhmb/out/v1/4ef90d78cd004a668bc0377f3884575b/cenc.mpd",
+  keys: {
+    "a6164ea0967b4bbbb51fdd6c4f83a64f": "b431d9ed821ca93df596168601ae5b00",
+  },
+},
+  Nd: {
+  name: "English  ( ITV 1 )",
+  manifest: "https://abgh3fbaaaaaaaambylpff72g6up6.ta.bia-cf.live.pv-cdn.net/iad-nitro/live/dash/enc/0eiyyz8qzm/out/v1/dd17af8835fe4bd087d1a4e359b635d7/cenc.mpd",
+  keys: {"30089c52924f037b225b82c616fee2a5":"f55dc8b66ed4fc6753d6035ae7e17144",
+    
+  }, // HLS stream — ClearKey DRM not applicable
+},
+
+Zee_Cinema: {
+  name: "Hindi  (Zee Cinema )",
+  manifest: "https://d1g8wgjurz8via.cloudfront.net/bpk-tv/NGCHD/default/master-Denver1769.m3u8",
+  keys: {}, // HLS stream — ClearKey DRM not applicable
+},
+cinerama:{
+  name: "Uzbek (Cinerama)",
+  manifest: "https://stream1.cinerama.uz/1004/index.m3u8",
+  keys: {},
+},
+        CT_Sports: {
+  name: "Czech ( CT Sports )",
+  manifest: "https://dash2.antik.sk/stream/nvidia_ct_sport/playlist_cenc.mpd",
+  keys: {
+    "11223344556677889900112233445566":"4b80724d0ef86bcb2c21f7999d67739d",
+  },
+},
+JOJ_sports : {
+  name: "Japanese  (JOJ Sports )",
+  manifest: "https://dash2.antik.sk/stream/nvidia_ct_sport/playlist_cenc.mpd",
+  keys: {
+    "11223344556677889900112233445566":"4b80724d0ef86bcb2c21f7999d67739d",
+  },
+},
+TSN: {
+  name: "English ( TSN  Sports 1)",
+  manifest: "https://cors-everywhere-wc8b4.ondigitalocean.app/https://otte.cache.aiv-cdn.net/bom-nitro/live/clients/dash/enc/w0rehjjrwe/out/v1/69a2a7041395406b970598f61680e7cf/cenc.mpd",
+  keys: { "14eeabf30c14b7fbf3008c03099ce011":"17d2ac8dbc5429bd70af3433aa12158d"}, // HLS stream — ClearKey DRM not applicable
+},
+fox: {
+  name: "English ( FOX 1 FHD)",
+  manifest: "https://cors-everywhere-wc8b4.ondigitalocean.app/https://otte.cache.aiv-cdn.net/bom-nitro/live/clients/dash/enc/ajfoeddkbz/out/v1/b78800b9b2304879b15843f455836829/cenc.mpd",
+  keys: { "f6564ec2aee819046328a0e153be574d":"ff46a8a1031eb27ef22576a077c98ab7"}, // HLS stream — ClearKey DRM not applicable
+},
+D_Sports: {
+  name: "D Sports (ES)",
+  manifest: "https://otte-qw.live.pv-cdn.net/iad-nitro/live/clients/dash/enc/x0srg3jjpz/out/v1/f779c49314394d61886d63f58d9d52e4/cenc.mpd",
+  keys: {
+    "4f4c3a9912ea752e88f4497864a1bc8b":"278128004fe8c6ffb2cd2a0c154a241a",
+  },
+},
+
+NTV_English: {
+  name: "NTV English",
+  manifest: "https://qp-pldt-live-bpk-ucd-prod.akamaized.net/bpk-tv/fifa_ppv1/default/index.mpd",
+  keys: {
+    "2c338a117d434ce4bbe3569231af90f1":"a9633d901ee8a3f4f58ac314b5c5f4fb",
+  },
+},
+
+RTE_English: {
+  name: "RTE English",
+  manifest: "https://dai.google.com/linear/dash/pa/event/antwa0EiQm2PoHtx4rBtVw/stream/9217f1b8-7d77-4590-8a52-4917bcfaeed2:GRQ/manifest.mpd",
+  keys: {
+    "d816287e21496989eae1312925a423c5":"00da00f13180e7e6cd5ce87d1c974e8d",
+  },
+},
+
+TSN_English: {
+  name: "TSN English",
+  manifest: "https://otte-qw.live.pv-cdn.net/bom-nitro/live/clients/dash/enc/w0rehjjrwe/out/v1/69a2a7041395406b970598f61680e7cf/cenc.mpd",
+  keys: {
+    "14eeabf30c14b7fbf3008c03099ce011":"17d2ac8dbc5429bd70af3433aa12158d",
+  },
+},
+
+CT_Sports: {
+  name: "Czech ( CT Sports )",
+  manifest: "https://dash2.antik.sk/stream/nvidia_ct_sport/playlist_cenc.mpd",
+  keys: {
+    "11223344556677889900112233445566":"4b80724d0ef86bcb2c21f7999d67739d",
+  },
+},
+
+TV4_Sweden: {
+  name: "TV4 Sweden",
+  manifest: "https://director.streaming.telia.com/tvm-packager-prod/group2/61a4859b79019af4abf1009d/manifest.mpd?adap=default",
+  keys: {
+    "b09d157d18ab51b9923a3d5abdeefd52":"5a29bb3c705edea6941a5b1d575ac316",
+  },
+},
+
+FOX_English: {
+  name: "FOX English",
+  manifest: "https://otte-qw.live.pv-cdn.net/pdx-nitro/live/clients/dash/enc/ajfoeddkbz/out/v1/b78800b9b2304879b15843f455836829/cenc.mpd",
+  keys: {
+    "f6564ec2aee819046328a0e153be574d":"ff46a8a1031eb27ef22576a077c98ab7",
+  },
+},
+
+TIPIK_FR: {
+  name: "TIPIK FR",
+  manifest: "https://c9851ec-rbm-hilv-fsly.cdn.redbee.live/L26/6b640fa2/a765d074.isml/dash/.mpd",
+  keys: {
+    "adca25b8779e4168a0cd710f59f61ccf":"be5383ed3cd8079f4ffe78ad067f476a",
+  },
+},
+
+TVP_Sports_HD: {
+  name: "TVP Sports HD",
+  manifest: "https://estreams.tv.nej.cz/dash/CH_TVP_SPORT_Portable.ism/playlist.mpd",
+  keys: {
+    "95620bdd974041409d4674ab629e22d4":"c6c226ca1689f528a6f91e86da618f64",
+  },
+},
+
+TELEMUNDO_FHD: {
+  name: "Telemundo FHD",
+  manifest: "https://cun-live1-ott.izzigo.tv/out/u/dash/NOG1/TELEMUNDO-ARIZONA-USA-TCS-HD/default.mpd",
+  keys: {
+    "1efe4add8fdf327c5f8d2a1c195e5c71":"4f50e6f011e60ca01ee561f27187e78f",
+  },
+},
+
+FOOTBOLL_RUSSIA: {
+  name: "Football Russia",
+  manifest: "https://video.beeline.tv/live/d/channel319.isml/manifest-stb.mpd",
+  keys: {
+    "9145a6e0f778e61866f573d4944dd533":"d02173d40515fea5c83944f21d0f3114",
+  },
+},
+
+TELEMUNDO_ES_USA: {
+  name: "Telemundo ES USA",
+  manifest: "https://live-oneapp-prd-news.akamaized.net/Content/CMAF_OL2-CTR-4s/Live/channel(WSNS)/master.mpd",
+  keys: {
+    "7d6bb9f86e133e4cb33440b493b6b672":"584ad285dcb9e7d42cf3e93f1cc3fe11",
+  },
+},
+
+FOX_PRIME_ENG: {
+  name: "FOX Prime ENG (USA VPN)",
+  manifest: "https://otte-azion.live.pv-cdn.net/iad-nitro/live/clients/enc/pp9fyo4pdg/out/v1/b78800b9b2304879b15843f455836829/cenc.mpd",
+  keys: {
+    "f6564ec2aee819046328a0e153be574d":"ff46a8a1031eb27ef22576a077c98ab7",
+  },
+},
+
+FUSSBALL_TV_4K: {
+  name: "FUSSBALL TV 4K",
+  manifest: "https://da-50f11b292a028381000001120000000000000009.id.vx.tentcdn.eu/wp/at-live-7.tentcdn.eu/bpk-tv/WM_TV_1_UHD/default/index.mpd",
+  keys: {
+    "4f558eae1b005126b2ac6e9eb1a7849e":"17aea325d91b5e66f06a8c574f2f0b03",
+  },
+},
+
+FUSSBALL_TV2_4K: {
+  name: "FUSSBALL TV2 4K",
+  manifest: "https://da-50f11b292a028381000001120000000000000009.id.vx.tentcdn.eu/wp/at-live-7.tentcdn.eu/bpk-tv/WM_TV_2_UHD/default/index.mpd",
+  keys: {
+    "ccdf9f3d9bbf5c508adf04f81918a285":"66cf0524fcc2eb0c7dab8bbbf8829827",
+  },
+},
+
+FOX_SPORTS_4K: {
+  name: "FOX Sports 4K (USA VPN)",
+  manifest: "https://otte.live.fly.ww.aiv-cdn.net/bom-nitro/live/clients/dash/enc/buf9inoetu/out/v1/31d30c91fc65458789b84209d3fa22e4/cenc.mpd",
+  keys: {
+    "1f68713028d439ec03be07f56c1d6213":"20093db6455160fffed4c394def3193d",
+  },
+},
+// KickBD: {
+//   name: "Kick BD ",
+//   manifest: "https://pub-3db98b732d9543ba82064868e76208f7.r2.dev/live.m3u8",
+//   keys: {
+//     "34475edab991ad5e92548aebd710410a": "501b209cccd323ac00bf5ac15b406cb4",
+//   },
+// },
+//   FOX_one: {
+//   name: "Fox One (US VPN)",
+//   manifest: "https://otte.cache.aiv-cdn.net/bom-nitro/live/clients/dash/enc/ajfoeddkbz/out/v1/b78800b9b2304879b15843f455836829/cenc.mpd",
+//   keys: {
+//     "f6564ec2aee819046328a0e153be574d":"ff46a8a1031eb27ef22576a077c98ab7",
+//   },
+// },
+// Caze_Prime : {
+//   name: "CAZE TV (Prime Video )",
+//   manifest: "https://otte-azion.live.pv-cdn.net/syd-nitro/live/clients/dash/enc/vzeco5ty0v/out/v1/44c6b8f31a2544e3b2a9bb41ed5e241e/cenc.mpd",
+//   keys: {
+//    "ac7abaa9c9481aacfbdac64fc3ec3312":"c0c504a2ed2e70b879a650b8770a38c6",
+//   },
+// },
+// TRT1: {
+//   name: "TRT 1",
+//   manifest: "https://tv-trt1-esdai.medya.trt.com.tr/master.m3u8",
+//   keys: {
+//     "": "",
+//   },
+// },
+// iOS: {
+//   name: "IOS Player",
+//   manifest: "https://otte.live.fly.ww.aiv-cdn.net/lhr-nitro/live/clients/dash/enc/3ynrpdanq2/out/v1/81fd4c26584044d2b1a1cc5b32fa9af0/cenc.mpd",
+//   keys: {
+//     "34475edab991ad5e92548aebd710410a": "501b209cccd323ac00bf5ac15b406cb4",
+//   },
+// },
+// CTV: {
+//   name: "CTV",
+//   manifest: "https://otte.cache.aiv-cdn.net/bom-nitro/live/clients/dash/enc/rcgdlutvzh/out/v1/d08fb8f93d8142be9ae3305e3c953694/cenc.mpd",
+//   keys: {
+//     "1fb1ab890f1b9392db40321042ad194b": "7c9d16a71ccdb3ced4ff1344c8c75d67",
+//   },
+// }, 
+// sportv_br_hd: {
+//   name: "SporTV BR HD",
+//   manifest: "https://a121aivottepl-a.akamaihd.net/gru-nitro/live/clients/dash/enc/tvezxbddeg/out/v1/3aa321e477504937a439b602e078eb18/cenc.mpd",
+//   keys: {
+//     "cb5eaea6d91fc8a702f154cefd69c976": "fd4b69623da596aac100e5722d8a1ca0",
+//   },
+// },  
+};
+
+      const SOURCE_LIST = Object.values(SOURCES);
+
+      const DEFAULT_SOURCE_INDEX = 0;
+      let currentSourceIndex = -1;
+
+      // ---- Elements ----
+      const statusLine = document.getElementById("statusLine");
+      const centerPlay = document.getElementById("centerPlay");
+      const spinner = document.getElementById("spinner");
+      const playBtn = document.getElementById("playBtn");
+      const muteBtn = document.getElementById("muteBtn");
+      const livePill = document.getElementById("livePill");
+      const seekRange = document.getElementById("seekRange");
+      const progressKnob = document.getElementById("progressKnob");
+      // speed controls removed
+      const sourceMenu = document.getElementById("sourceMenu");
+      const sourceLabel = document.getElementById("sourceLabel");
+      const qualityMenu = document.getElementById("qualityMenu");
+      const qualityLabel = document.getElementById("qualityLabel");
+      // captions and PiP removed
+      const fullscreenBtn = document.getElementById("fullscreenBtn");
+      const videoArea = document.getElementById("videoArea");
+
+      const PLAY_ICON = '<path d="M8 5v14l11-7z"/>';
+      const PAUSE_ICON = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+      const VOL_ON =
+        '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>';
+      const VOL_OFF =
+        '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M23 9l-6 6M17 9l6 6"/>';
+
+      function setStatus(msg, type = "") {
+        statusLine.textContent = msg;
+        statusLine.className = "status-line" + (type ? " " + type : "");
+      }
+
+      // ---- ClearKey config helper ----
+      function buildClearKeyConfig(keysObj) {
+        if (!keysObj || Object.keys(keysObj).length === 0) return null;
+        return {
+          drm: {
+            clearKeys: { ...keysObj }, // { kidHex: keyHex, ... }
+          },
+        };
+      }
+
+      // ---- Load a source by index ----
+      async function loadSourceByIndex(idx) {
+        const src = SOURCE_LIST[idx];
+        if (!src) return;
+        currentSourceIndex = idx;
+        sourceLabel.textContent = src.name;
+        buildSourceMenu();
+
+        spinner.classList.add("active");
+        setStatus("Loading: " + src.name + " ...");
+
+        // Fix 5: Reset ClearKey config; only apply keys for DASH/MPD (not HLS)
+        player.configure({ drm: { clearKeys: {} } });
+        const isHLS = src.manifest.toLowerCase().includes(".m3u8");
+        if (!isHLS) {
+          const ckConfig = buildClearKeyConfig(src.keys);
+          if (ckConfig) player.configure(ckConfig);
+        }
+
+        try {
+          await player.load(src.manifest);
+          setStatus("Playing: " + src.name, "ok");
+          spinner.classList.remove("active");
+          centerPlay.classList.add("hidden");
+          video.play();
+          populateQualityMenu();
+        } catch (err) {
+          spinner.classList.remove("active");
+          setStatus("Error loading " + src.name + ": " + err.message, "error");
+          console.error(err);
+        }
+      }
+
+      // ---- Source menu ----
+      function buildSourceMenu() {
+        sourceMenu.innerHTML = "";
+        SOURCE_LIST.forEach((s, i) => {
+          const item = document.createElement("button");
+          item.className =
+            "menu-item" + (i === currentSourceIndex ? " active" : "");
+          item.textContent = s.name;
+          item.addEventListener("click", () => {
+            sourceMenu.classList.remove("open");
+            if (i !== currentSourceIndex) loadSourceByIndex(i);
+          });
+          sourceMenu.appendChild(item);
+        });
+      }
+
+      // ---- Quality menu ----
+      function populateQualityMenu() {
+        qualityMenu.innerHTML = "";
+        const tracks = player.getVariantTracks();
+        const autoItem = document.createElement("button");
+        autoItem.className = "menu-item active";
+        autoItem.textContent = "Auto";
+        autoItem.addEventListener("click", () => {
+          player.configure({ abr: { enabled: true } });
+          qualityLabel.textContent = "Auto";
+          highlightQuality(null);
+          qualityMenu.classList.remove("open");
+        });
+        qualityMenu.appendChild(autoItem);
+
+        const seen = new Set();
+        tracks
+          .filter((t) => t.type === "variant" && t.height)
+          .sort((a, b) => b.height - a.height)
+          .forEach((t) => {
+            const key = t.height + "p";
+            if (seen.has(key)) return;
+            seen.add(key);
+            const item = document.createElement("button");
+            item.className = "menu-item";
+            item.textContent = key;
+            item.addEventListener("click", () => {
+              player.configure({ abr: { enabled: false } });
+              const match = tracks.find((tr) => tr.height === t.height);
+              if (match) player.selectVariantTrack(match, true);
+              qualityLabel.textContent = key;
+              highlightQuality(key);
+              qualityMenu.classList.remove("open");
+            });
+            qualityMenu.appendChild(item);
+          });
+      }
+      function highlightQuality(active) {
+        [...qualityMenu.children].forEach((c) => {
+          c.classList.toggle(
+            "active",
+            (active === null && c.textContent === "Auto") ||
+              c.textContent === active,
+          );
+        });
+      }
+
+      // speed, captions removed
+
+      // ---- Menu toggles ----
+      document.querySelectorAll(".menu-wrap").forEach((wrap) => {
+        const btn = wrap.querySelector("button");
+        const menu = wrap.querySelector(".menu");
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = menu.classList.contains("open");
+          document
+            .querySelectorAll(".menu")
+            .forEach((m) => m.classList.remove("open"));
+          if (!isOpen) menu.classList.add("open");
+        });
+      });
+      document.addEventListener("click", () => {
+        document
+          .querySelectorAll(".menu")
+          .forEach((m) => m.classList.remove("open"));
+      });
+
+      // ---- Play / Pause ----
+      function togglePlay() {
+        if (video.paused) video.play();
+        else video.pause();
+      }
+      playBtn.addEventListener("click", togglePlay);
+      centerPlay.addEventListener("click", togglePlay);
+
+      video.addEventListener("play", () => {
+        document.getElementById("playIcon").outerHTML =
+          `<svg id="playIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none">${PAUSE_ICON}</svg>`;
+        centerPlay.classList.add("hidden");
+        updateLivePill();
+      });
+      video.addEventListener("pause", () => {
+        document.getElementById("playIcon").outerHTML =
+          `<svg id="playIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none">${PLAY_ICON}</svg>`;
+        centerPlay.classList.remove("hidden");
+        updateLivePill();
+      });
+      // Fix 3: Stall auto-recovery — if stuck >8s on live, jump to live edge and retry
+      let stallTimer = null;
+      video.addEventListener("waiting", () => {
+        spinner.classList.add("active");
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => {
+          try {
+            if (player.isLive()) {
+              const sr = player.seekRange();
+              if (sr && sr.end) video.currentTime = Math.max(sr.start, sr.end - 1);
+            }
+            video.play().catch(() => {});
+          } catch (e) { console.warn("Stall recovery error:", e); }
+        }, 8000);
+      });
+      video.addEventListener("playing", () => {
+        spinner.classList.remove("active");
+        clearTimeout(stallTimer);
+      });
+      video.addEventListener("canplay", () => {
+        spinner.classList.remove("active");
+        clearTimeout(stallTimer);
+      });
+
+      // ---- Mute ----
+      muteBtn.addEventListener("click", () => {
+        video.muted = !video.muted;
+        document.getElementById("volIcon").outerHTML =
+          `<svg id="volIcon" viewBox="0 0 24 24">${video.muted ? VOL_OFF : VOL_ON}</svg>`;
+      });
+
+      // ---- Live pill + seek bar ----
+      function updateLivePill() {
+        const atLiveEdge = isAtLiveEdge();
+        livePill.classList.toggle("active", atLiveEdge && !video.paused);
+        livePill.classList.toggle("paused", video.paused || !atLiveEdge);
+      }
+      function isAtLiveEdge() {
+        if (!player.isLive()) return false;
+        const sr = player.seekRange();
+        return sr.end - video.currentTime < 4;
+      }
+      livePill.addEventListener("click", () => {
+        if (player.isLive()) {
+          const sr = player.seekRange();
+          video.currentTime = sr.end;
+          if (video.paused) video.play();
+        }
+      });
+
+      let seekDragging = false;
+      seekRange.addEventListener("input", () => {
+        seekDragging = true;
+        if (!player.isLive()) return;
+        const sr = player.seekRange();
+        const pct = seekRange.value / 1000;
+        video.currentTime = sr.start + pct * (sr.end - sr.start);
+      });
+      seekRange.addEventListener("change", () => {
+        seekDragging = false;
+      });
+
+      setInterval(() => {
+        if (!player.isLive() || seekDragging) return;
+        const sr = player.seekRange();
+        const total = sr.end - sr.start;
+        const pos = video.currentTime - sr.start;
+        const pct =
+          total > 0 ? Math.min(100, Math.max(0, (pos / total) * 100)) : 100;
+        seekRange.value = pct * 10;
+        progressKnob.style.left = pct + "%";
+        updateLivePill();
+      }, 500);
+
+      // PiP removed
+
+      // ---- Fullscreen ----
+      fullscreenBtn.addEventListener("click", () => {
+        if (!document.fullscreenElement)
+          videoArea.parentElement.requestFullscreen();
+        else document.exitFullscreen();
+      });
+
+      // ---- Error listener ----
+      player.addEventListener("error", (e) => {
+        setStatus("Player error: " + e.detail.message, "error");
+        console.error("Shaka error", e.detail);
+      });
+
+      // ---- Init ----
+      buildSourceMenu();
+      if (SOURCE_LIST.length) {
+        loadSourceByIndex(DEFAULT_SOURCE_INDEX);
+      } else {
+        setStatus("No sources configured.", "error");
+      }
+    </script>
+  </body>
+</html>
